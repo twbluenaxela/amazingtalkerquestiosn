@@ -1,0 +1,42 @@
+.container {
+    height: 150px;
+    display: flex;
+    // your code here
+  }
+  
+  .left {
+    background-color: #eee;
+    align-items: stretch;
+    width: 80px;
+    // your code here
+  }
+  .middle {
+    background-color: #ddd;
+    width: 240px;
+    // your code here
+  }
+  .right {
+    background-color: #eee;
+    visibility: hidden;
+    // your code here
+  }
+  
+  @media (width <= 40px) {
+    .left {
+      width: 40px;
+    }
+    .middle {
+      align-items: stretch;
+    }
+  }
+  
+  @media (width > 120px) {
+    .right {
+      visibility: visible;
+      width: 120px;
+    }
+    .container {
+      padding-left: 5px;
+      padding-right: 5px;
+    }
+  }
