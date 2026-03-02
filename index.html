@@ -3,7 +3,7 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>倉頡練習 Cangjie Practice</title>
+  <title>倉頡三代練習 Cangjie 3 Practice</title>
   <style>
     /* ── Reset & Base ── */
     *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
@@ -340,7 +340,7 @@
 <body>
 
 <header>
-  <h1>倉頡練習 ⌨️</h1>
+  <h1>倉頡三代練習 ⌨️</h1>
   <div class="score-bar">
     <span class="score-correct">✓ <span id="hdr-correct">0</span></span>
     <span class="score-total">題 <span id="hdr-total">0</span></span>
@@ -477,7 +477,9 @@ const CHARS = [
   { char:'問', code:'anr',   pinyin:'wèn',  meaning:'問/Ask',     cat:'verbs' },
   { char:'幫', code:'gihab', pinyin:'bāng', meaning:'幫/Help',    cat:'verbs' },
   { char:'請', code:'yrqmb', pinyin:'qǐng', meaning:'請/Please',  cat:'verbs' },
-  { char:'開', code:'anmt',  pinyin:'kāi',  meaning:'開/Open',    cat:'verbs' },
+  { char:'作', code:'ohs',   pinyin:'zuò',  meaning:'作/Do/Make', cat:'verbs' },
+  { char:'應', code:'igp',   pinyin:'yīng', meaning:'應/Should',  cat:'verbs' },
+  { char:'開', code:'anmjj', altCodes:['anmkj','anmt'], pinyin:'kāi',  meaning:'開/Open',    cat:'verbs' },
   { char:'關', code:'anvit', pinyin:'guān', meaning:'關/Close',   cat:'verbs' },
   { char:'找', code:'qi',    pinyin:'zhǎo', meaning:'找/Find',    cat:'verbs' },
   { char:'等', code:'hgdi',  pinyin:'děng', meaning:'等/Wait',    cat:'verbs' },
@@ -507,7 +509,7 @@ const CHARS = [
   // ── 時間
   { char:'今', code:'oin',   pinyin:'jīn',  meaning:'今/Today',   cat:'time' },
   { char:'明', code:'ab',    pinyin:'míng', meaning:'明/Tomorrow',cat:'time' },
-  { char:'昨', code:'aos',   pinyin:'zuó',  meaning:'昨/Yesterday',cat:'time'},
+  { char:'昨', code:'ahs',   pinyin:'zuó',  meaning:'昨/Yesterday',cat:'time'},
   { char:'早', code:'aj',    pinyin:'zǎo',  meaning:'早/Morning', cat:'time' },
   { char:'晚', code:'anau',  altCodes:['ashu'], pinyin:'wǎn',  meaning:'晚/Evening', cat:'time' },
   { char:'天', code:'mk',    pinyin:'tiān', meaning:'天/Day',     cat:'time' },
@@ -581,7 +583,7 @@ const CHARS = [
   { char:'加', code:'ksr',   pinyin:'jiā',  meaning:'加/Add',     cat:'polite' },
   { char:'油', code:'elw',   pinyin:'yóu',  meaning:'油/Oil',     cat:'polite' },
   { char:'抱', code:'qpru',  pinyin:'bào',  meaning:'抱/Hold',    cat:'polite' },
-  { char:'歉', code:'ccno',  altCodes:['hcno','tcno'], pinyin:'qiàn', meaning:'歉/Apology', cat:'polite' },
+  { char:'歉', code:'hcno',  altCodes:['tcno'], pinyin:'qiàn', meaning:'歉/Apology', cat:'polite' },
   { char:'意', code:'ytap',  pinyin:'yì',   meaning:'意/Meaning', cat:'polite' },
   { char:'思', code:'wp',    pinyin:'si',   meaning:'思/Think',   cat:'polite' },
 
