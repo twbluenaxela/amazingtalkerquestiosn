@@ -165,8 +165,8 @@
       align-items: center;
     }
     .code-key {
-      width: 44px;
-      height: 44px;
+      width: 52px;
+      height: 56px;
       border-radius: 8px;
       background: var(--key-bg);
       border: 1.5px solid var(--border);
@@ -174,17 +174,21 @@
       flex-direction: column;
       align-items: center;
       justify-content: center;
-      font-size: .85rem;
-      font-weight: 700;
-      text-transform: uppercase;
       transition: all .15s;
       position: relative;
+      gap: 2px;
     }
-    .code-key .radical {
+    .code-key .radical-main {
+      font-size: 1.4rem;
+      font-weight: 700;
+      line-height: 1;
+    }
+    .code-key .key-letter {
       font-size: .6rem;
       color: var(--muted);
-      font-weight: 400;
-      margin-top: 1px;
+      font-weight: 500;
+      text-transform: uppercase;
+      letter-spacing: .5px;
     }
     .code-key.typed   { background: var(--key-active); border-color: var(--primary); color: var(--primary-dark); }
     .code-key.correct { background: var(--key-correct); border-color: var(--success); color: #15803d; }
@@ -774,6 +778,11 @@ function updateHeader() {
 // ─────────────────────────────────────────────
 // Render code key slots
 // ─────────────────────────────────────────────
+function keySlotHTML(letter) {
+  const radical = CJ_KEYS[letter] || letter.toUpperCase();
+  return `<span class="radical-main">${radical}</span><span class="key-letter">${letter.toUpperCase()}</span>`;
+}
+
 function renderCodeSlots(code, typed, state) {
   elCode.innerHTML = '';
   const len = code.length;
@@ -783,21 +792,21 @@ function renderCodeSlots(code, typed, state) {
     let cls = 'code-key';
     if (state === 'correct') {
       cls += ' correct';
-      div.innerHTML = `${letter.toUpperCase()}<span class="radical">${CJ_KEYS[letter] || ''}</span>`;
+      div.innerHTML = keySlotHTML(letter);
     } else if (state === 'wrong') {
       if (i < typed.length) {
         cls += typed[i] === letter ? ' correct' : ' wrong';
       } else {
         cls += ' empty';
       }
-      div.innerHTML = `${letter.toUpperCase()}<span class="radical">${CJ_KEYS[letter] || ''}</span>`;
+      div.innerHTML = keySlotHTML(letter);
     } else {
       if (i < typed.length) {
         cls += ' typed';
-        div.innerHTML = `${typed[i].toUpperCase()}<span class="radical">${CJ_KEYS[typed[i]] || ''}</span>`;
+        div.innerHTML = keySlotHTML(typed[i]);
       } else {
         cls += ' empty';
-        div.innerHTML = `<span style="opacity:.3">-</span>`;
+        div.innerHTML = `<span class="radical-main" style="opacity:.2">？</span>`;
       }
     }
     div.className = cls;
@@ -871,7 +880,8 @@ function submitAnswer() {
   updateHeader();
 
   if (isOK) {
-    elFB.textContent  = '✓ 正確！';
+    const radicals = [...code].map(k => CJ_KEYS[k] || k.toUpperCase()).join('');
+    elFB.textContent  = `✓ 正確！${radicals}`;
     elFB.className    = 'feedback correct';
     renderCodeSlots(code, typed, 'correct');
     litKeyboard([...code]);
@@ -888,8 +898,9 @@ function submitAnswer() {
 }
 
 function showReveal(code) {
-  const keys = [...code].map(k => `<strong>${k.toUpperCase()}</strong> ${CJ_KEYS[k] || ''}`).join(' ');
-  elReveal.innerHTML = `${code.toUpperCase()} （${[...code].map(k=>CJ_KEYS[k]||k).join('')}）`;
+  const radicals = [...code].map(k => CJ_KEYS[k] || k.toUpperCase()).join('');
+  const letters  = code.toUpperCase();
+  elReveal.innerHTML = `<strong>${radicals}</strong> <span style="font-size:.8rem;color:var(--muted)">(${letters})</span>`;
 }
 
 // ─────────────────────────────────────────────
@@ -911,9 +922,10 @@ elSkip.addEventListener('click', () => {
 });
 
 elHint.addEventListener('click', () => {
-  const item  = queue[idx];
-  const first = item.code[0];
-  elFB.textContent = `提示：第一個字母是 ${first.toUpperCase()} (${CJ_KEYS[first] || first})`;
+  const item    = queue[idx];
+  const first   = item.code[0];
+  const radical = CJ_KEYS[first] || first.toUpperCase();
+  elFB.textContent = `提示：第一碼是「${radical}」(${first.toUpperCase()})`;
   elFB.className   = 'feedback hint';
   litKeyboard([first]);
   focusInput();
