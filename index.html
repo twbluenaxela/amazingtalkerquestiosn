@@ -1,0 +1,970 @@
+<!DOCTYPE html>
+<html lang="zh-TW">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>倉頡練習 Cangjie Practice</title>
+  <style>
+    /* ── Reset & Base ── */
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+    :root {
+      --bg: #f5f3ef;
+      --card: #ffffff;
+      --primary: #3b82f6;
+      --primary-dark: #2563eb;
+      --success: #22c55e;
+      --error: #ef4444;
+      --warn: #f59e0b;
+      --text: #1e293b;
+      --muted: #64748b;
+      --border: #e2e8f0;
+      --key-bg: #f1f5f9;
+      --key-active: #bfdbfe;
+      --key-correct: #bbf7d0;
+      --radius: 12px;
+      --shadow: 0 2px 12px rgba(0,0,0,.08);
+    }
+    html { font-size: 16px; }
+    body {
+      font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', 'PingFang TC',
+                   'Noto Sans TC', sans-serif;
+      background: var(--bg);
+      color: var(--text);
+      min-height: 100dvh;
+      display: flex;
+      flex-direction: column;
+    }
+
+    /* ── Header ── */
+    header {
+      background: var(--primary);
+      color: #fff;
+      padding: 12px 20px;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      flex-wrap: wrap;
+      gap: 8px;
+    }
+    header h1 { font-size: 1.1rem; font-weight: 700; letter-spacing: .5px; }
+    .score-bar {
+      display: flex;
+      gap: 12px;
+      font-size: .85rem;
+      font-weight: 600;
+    }
+    .score-bar span { background: rgba(255,255,255,.2); padding: 3px 10px; border-radius: 20px; }
+    .score-correct { color: #bbf7d0; }
+    .score-total   { color: #fff; }
+
+    /* ── Category Tabs ── */
+    .tabs {
+      display: flex;
+      overflow-x: auto;
+      gap: 6px;
+      padding: 12px 16px 0;
+      scrollbar-width: none;
+    }
+    .tabs::-webkit-scrollbar { display: none; }
+    .tab {
+      flex-shrink: 0;
+      padding: 6px 14px;
+      border-radius: 20px;
+      border: 1.5px solid var(--border);
+      background: var(--card);
+      cursor: pointer;
+      font-size: .8rem;
+      font-weight: 600;
+      color: var(--muted);
+      transition: all .2s;
+      white-space: nowrap;
+    }
+    .tab.active {
+      background: var(--primary);
+      border-color: var(--primary);
+      color: #fff;
+    }
+
+    /* ── Main Card ── */
+    main {
+      flex: 1;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      padding: 16px;
+      gap: 16px;
+      max-width: 640px;
+      width: 100%;
+      margin: 0 auto;
+    }
+
+    .card {
+      background: var(--card);
+      border-radius: var(--radius);
+      box-shadow: var(--shadow);
+      padding: 24px;
+      width: 100%;
+    }
+
+    /* Character display */
+    .char-display {
+      text-align: center;
+      padding: 8px 0 4px;
+    }
+    .char-big {
+      font-size: 5rem;
+      line-height: 1;
+      font-weight: 700;
+      color: var(--text);
+      letter-spacing: -2px;
+    }
+    .char-meta {
+      margin-top: 8px;
+      font-size: .85rem;
+      color: var(--muted);
+    }
+    .char-pinyin { font-style: italic; margin-right: 8px; }
+    .char-meaning { font-weight: 600; }
+
+    /* Progress */
+    .progress-wrap {
+      margin-top: 12px;
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      font-size: .78rem;
+      color: var(--muted);
+    }
+    .progress-bar {
+      flex: 1;
+      height: 5px;
+      background: var(--border);
+      border-radius: 4px;
+      overflow: hidden;
+    }
+    .progress-fill {
+      height: 100%;
+      background: var(--primary);
+      border-radius: 4px;
+      transition: width .4s;
+    }
+
+    /* Input area */
+    .input-area {
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      gap: 12px;
+      padding: 4px 0;
+    }
+    .code-display {
+      display: flex;
+      gap: 8px;
+      justify-content: center;
+      min-height: 52px;
+      align-items: center;
+    }
+    .code-key {
+      width: 44px;
+      height: 44px;
+      border-radius: 8px;
+      background: var(--key-bg);
+      border: 1.5px solid var(--border);
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      font-size: .85rem;
+      font-weight: 700;
+      text-transform: uppercase;
+      transition: all .15s;
+      position: relative;
+    }
+    .code-key .radical {
+      font-size: .6rem;
+      color: var(--muted);
+      font-weight: 400;
+      margin-top: 1px;
+    }
+    .code-key.typed   { background: var(--key-active); border-color: var(--primary); color: var(--primary-dark); }
+    .code-key.correct { background: var(--key-correct); border-color: var(--success); color: #15803d; }
+    .code-key.wrong   { background: #fee2e2; border-color: var(--error); color: #b91c1c; }
+    .code-key.empty   { border-style: dashed; opacity: .4; }
+
+    /* Hidden real input to catch keyboard */
+    #hidden-input {
+      position: absolute;
+      opacity: 0;
+      pointer-events: none;
+      width: 1px;
+      height: 1px;
+    }
+
+    /* Feedback message */
+    .feedback {
+      font-size: .95rem;
+      font-weight: 700;
+      min-height: 1.4em;
+      text-align: center;
+      transition: opacity .2s;
+    }
+    .feedback.correct { color: var(--success); }
+    .feedback.wrong   { color: var(--error); }
+    .feedback.hint    { color: var(--warn); }
+
+    /* Answer reveal */
+    .answer-reveal {
+      font-size: .85rem;
+      color: var(--muted);
+      text-align: center;
+      min-height: 1.2em;
+    }
+    .answer-reveal strong { color: var(--text); font-family: monospace; letter-spacing: 2px; font-size: 1rem; }
+
+    /* Buttons */
+    .btn-row {
+      display: flex;
+      gap: 10px;
+      justify-content: center;
+      flex-wrap: wrap;
+    }
+    button {
+      padding: 10px 22px;
+      border-radius: 8px;
+      border: none;
+      font-size: .9rem;
+      font-weight: 600;
+      cursor: pointer;
+      transition: all .15s;
+    }
+    .btn-primary {
+      background: var(--primary);
+      color: #fff;
+    }
+    .btn-primary:hover { background: var(--primary-dark); }
+    .btn-secondary {
+      background: var(--key-bg);
+      color: var(--text);
+      border: 1.5px solid var(--border);
+    }
+    .btn-secondary:hover { background: var(--border); }
+    .btn-skip {
+      background: transparent;
+      color: var(--muted);
+      font-size: .8rem;
+      padding: 6px 14px;
+    }
+
+    /* ── Cangjie Keyboard Reference ── */
+    .kbd-ref {
+      width: 100%;
+    }
+    .kbd-ref h3 {
+      font-size: .8rem;
+      color: var(--muted);
+      text-align: center;
+      margin-bottom: 10px;
+      text-transform: uppercase;
+      letter-spacing: 1px;
+    }
+    .keyboard {
+      display: flex;
+      flex-direction: column;
+      gap: 4px;
+      align-items: center;
+    }
+    .kbd-row {
+      display: flex;
+      gap: 4px;
+    }
+    .kkey {
+      width: 32px;
+      height: 36px;
+      border-radius: 5px;
+      background: var(--key-bg);
+      border: 1px solid var(--border);
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      font-size: .65rem;
+      line-height: 1.1;
+      cursor: pointer;
+      transition: background .1s;
+      user-select: none;
+    }
+    .kkey:active { background: var(--key-active); }
+    .kkey .eng  { font-weight: 700; font-size: .7rem; }
+    .kkey .chi  { font-size: .62rem; color: var(--muted); }
+    .kkey.lit   { background: var(--key-active); border-color: var(--primary); }
+
+    /* ── Stats / Completed ── */
+    .done-screen {
+      text-align: center;
+      padding: 16px 0;
+    }
+    .done-screen .big-emoji { font-size: 3.5rem; margin-bottom: 8px; }
+    .done-screen h2 { font-size: 1.3rem; margin-bottom: 6px; }
+    .done-screen p  { color: var(--muted); font-size: .9rem; }
+    .stat-row {
+      display: flex;
+      gap: 12px;
+      justify-content: center;
+      margin: 16px 0;
+      flex-wrap: wrap;
+    }
+    .stat-box {
+      padding: 12px 20px;
+      border-radius: var(--radius);
+      background: var(--key-bg);
+      text-align: center;
+    }
+    .stat-box .num  { font-size: 1.8rem; font-weight: 700; color: var(--primary); }
+    .stat-box .lbl  { font-size: .75rem; color: var(--muted); margin-top: 2px; }
+
+    /* ── Mobile tap buttons (virtual keyboard) ── */
+    .mobile-hint {
+      font-size: .75rem;
+      color: var(--muted);
+      text-align: center;
+      margin-bottom: 4px;
+    }
+
+    @media (max-width: 480px) {
+      .char-big { font-size: 4rem; }
+      .kkey { width: 28px; height: 32px; font-size: .55rem; }
+      .kkey .eng { font-size: .6rem; }
+    }
+  </style>
+</head>
+<body>
+
+<header>
+  <h1>倉頡練習 ⌨️</h1>
+  <div class="score-bar">
+    <span class="score-correct">✓ <span id="hdr-correct">0</span></span>
+    <span class="score-total">題 <span id="hdr-total">0</span></span>
+  </div>
+</header>
+
+<div class="tabs" id="tabs"></div>
+
+<main>
+  <!-- Practice card -->
+  <div class="card" id="practice-card">
+    <div class="char-display">
+      <div class="char-big" id="char-display">？</div>
+      <div class="char-meta">
+        <span class="char-pinyin" id="char-pinyin"></span>
+        <span class="char-meaning" id="char-meaning"></span>
+      </div>
+      <div class="progress-wrap">
+        <span id="prog-text">0 / 0</span>
+        <div class="progress-bar"><div class="progress-fill" id="prog-fill" style="width:0%"></div></div>
+      </div>
+    </div>
+
+    <hr style="margin:16px 0;border:none;border-top:1px solid var(--border)">
+
+    <div class="input-area">
+      <div class="mobile-hint">用鍵盤打倉頡碼，或點下方字母鍵</div>
+
+      <div class="code-display" id="code-display"></div>
+
+      <input id="hidden-input" type="text" autocomplete="off" autocorrect="off"
+             autocapitalize="off" spellcheck="false" />
+
+      <div class="feedback" id="feedback"></div>
+      <div class="answer-reveal" id="answer-reveal"></div>
+
+      <div class="btn-row">
+        <button class="btn-secondary" id="btn-hint">提示</button>
+        <button class="btn-primary" id="btn-next" style="display:none">下一題 →</button>
+        <button class="btn-skip" id="btn-skip">跳過</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- Done screen (hidden) -->
+  <div class="card done-screen" id="done-card" style="display:none">
+    <div class="big-emoji" id="done-emoji">🎉</div>
+    <h2 id="done-title">練習完成！</h2>
+    <p id="done-sub"></p>
+    <div class="stat-row">
+      <div class="stat-box">
+        <div class="num" id="stat-correct">-</div>
+        <div class="lbl">答對</div>
+      </div>
+      <div class="stat-box">
+        <div class="num" id="stat-total">-</div>
+        <div class="lbl">總題數</div>
+      </div>
+      <div class="stat-box">
+        <div class="num" id="stat-pct">-</div>
+        <div class="lbl">正確率</div>
+      </div>
+    </div>
+    <div class="btn-row">
+      <button class="btn-primary" id="btn-restart">再練一次</button>
+      <button class="btn-secondary" id="btn-allcat">選其他類別</button>
+    </div>
+  </div>
+
+  <!-- Cangjie keyboard reference -->
+  <div class="card kbd-ref">
+    <h3>倉頡字母對照</h3>
+    <div class="keyboard" id="keyboard"></div>
+  </div>
+</main>
+
+<script>
+// ─────────────────────────────────────────────
+// Cangjie key → radical mapping
+// ─────────────────────────────────────────────
+const CJ_KEYS = {
+  q:'手', w:'田', e:'水', r:'口', t:'廿',
+  y:'卜', u:'山', i:'戈', o:'人', p:'心',
+  a:'日', s:'尸', d:'木', f:'火', g:'土',
+  h:'竹', j:'十', k:'大', l:'中',
+  z:'重', x:'難', c:'金', v:'女', b:'月', n:'弓', m:'一'
+};
+
+// ─────────────────────────────────────────────
+// Character dataset  (char, code, pinyin, meaning, category)
+// Codes verified against Jackchows/Cangjie5 TC dictionary
+// ─────────────────────────────────────────────
+const CHARS = [
+  // ── 人稱代詞
+  { char:'我', code:'hqi',   pinyin:'wǒ',    meaning:'我/I',      cat:'pronouns' },
+  { char:'你', code:'onf',   pinyin:'nǐ',    meaning:'你/You',    cat:'pronouns' },
+  { char:'他', code:'opd',   pinyin:'tā',    meaning:'他/He',     cat:'pronouns' },
+  { char:'她', code:'vpd',   pinyin:'tā',    meaning:'她/She',    cat:'pronouns' },
+  { char:'們', code:'oan',   pinyin:'men',   meaning:'們/Plural', cat:'pronouns' },
+  { char:'大', code:'k',     pinyin:'dà',    meaning:'大/Big',    cat:'pronouns' },
+  { char:'小', code:'nc',    pinyin:'xiǎo',  meaning:'小/Small',  cat:'pronouns' },
+
+  // ── 基本問候
+  { char:'好', code:'vnd',   pinyin:'hǎo',  meaning:'好/Good',    cat:'greet' },
+  { char:'嗎', code:'rsqf',  pinyin:'ma',   meaning:'嗎/？(Q)',   cat:'greet' },
+  { char:'呢', code:'rsp',   pinyin:'ne',   meaning:'呢/And you?',cat:'greet' },
+  { char:'啊', code:'rnlr',  pinyin:'ā',    meaning:'啊/Ah!',     cat:'greet' },
+  { char:'嗯', code:'rwkp',  pinyin:'ń',    meaning:'嗯/Mm-hmm',  cat:'greet' },
+  { char:'吧', code:'rau',   pinyin:'ba',   meaning:'吧/Right?',  cat:'greet' },
+  { char:'哦', code:'rhqi',  pinyin:'ò',    meaning:'哦/Oh',      cat:'greet' },
+  { char:'哈', code:'romr',  pinyin:'hā',   meaning:'哈/Haha',    cat:'greet' },
+  { char:'哇', code:'rgg',   pinyin:'wā',   meaning:'哇/Wow',     cat:'greet' },
+  { char:'嘿', code:'rwgf',  pinyin:'hēi',  meaning:'嘿/Hey',     cat:'greet' },
+  { char:'哎', code:'rtk',   pinyin:'āi',   meaning:'哎/Alas',    cat:'greet' },
+
+  // ── 常用動詞
+  { char:'是', code:'amyo',  pinyin:'shì',  meaning:'是/Is',      cat:'verbs' },
+  { char:'有', code:'kb',    pinyin:'yǒu',  meaning:'有/Have',    cat:'verbs' },
+  { char:'要', code:'mwv',   pinyin:'yào',  meaning:'要/Want',    cat:'verbs' },
+  { char:'來', code:'doo',   pinyin:'lái',  meaning:'來/Come',    cat:'verbs' },
+  { char:'去', code:'gi',    pinyin:'qù',   meaning:'去/Go',      cat:'verbs' },
+  { char:'說', code:'yrcru', pinyin:'shuō', meaning:'說/Say',     cat:'verbs' },
+  { char:'看', code:'hqbu',  pinyin:'kàn',  meaning:'看/Look',    cat:'verbs' },
+  { char:'知', code:'okr',   pinyin:'zhī',  meaning:'知/Know',    cat:'verbs' },
+  { char:'想', code:'dup',   pinyin:'xiǎng',meaning:'想/Think',   cat:'verbs' },
+  { char:'做', code:'ojrk',  pinyin:'zuò',  meaning:'做/Do',      cat:'verbs' },
+  { char:'吃', code:'ron',   pinyin:'chī',  meaning:'吃/Eat',     cat:'verbs' },
+  { char:'喝', code:'rapp',  altCodes:['rapv'], pinyin:'hē',   meaning:'喝/Drink',   cat:'verbs' },
+  { char:'玩', code:'mgmmu', pinyin:'wán',  meaning:'玩/Play',    cat:'verbs' },
+  { char:'走', code:'gyo',   pinyin:'zǒu',  meaning:'走/Walk',    cat:'verbs' },
+  { char:'睡', code:'buhjm', pinyin:'shuì', meaning:'睡/Sleep',   cat:'verbs' },
+  { char:'買', code:'wlbuc', pinyin:'mǎi',  meaning:'買/Buy',     cat:'verbs' },
+  { char:'聽', code:'sgjwp', pinyin:'tīng', meaning:'聽/Listen',  cat:'verbs' },
+  { char:'問', code:'anr',   pinyin:'wèn',  meaning:'問/Ask',     cat:'verbs' },
+  { char:'幫', code:'gihab', pinyin:'bāng', meaning:'幫/Help',    cat:'verbs' },
+  { char:'請', code:'yrqmb', pinyin:'qǐng', meaning:'請/Please',  cat:'verbs' },
+  { char:'開', code:'anmt',  pinyin:'kāi',  meaning:'開/Open',    cat:'verbs' },
+  { char:'關', code:'anvit', pinyin:'guān', meaning:'關/Close',   cat:'verbs' },
+  { char:'找', code:'qi',    pinyin:'zhǎo', meaning:'找/Find',    cat:'verbs' },
+  { char:'等', code:'hgdi',  pinyin:'děng', meaning:'等/Wait',    cat:'verbs' },
+  { char:'覺', code:'hbbuu', pinyin:'jué',  meaning:'覺/Feel',    cat:'verbs' },
+  { char:'得', code:'hoami', pinyin:'de',   meaning:'得/得',      cat:'verbs' },
+  { char:'給', code:'vfomr', pinyin:'gěi',  meaning:'給/Give',    cat:'verbs' },
+  { char:'讓', code:'yryrv', pinyin:'ràng', meaning:'讓/Let',     cat:'verbs' },
+  { char:'記', code:'yrsu',  pinyin:'jì',   meaning:'記/Remember',cat:'verbs' },
+
+  // ── 情感
+  { char:'愛', code:'bbpe',  pinyin:'ài',   meaning:'愛/Love',    cat:'emotion' },
+  { char:'喜', code:'grtr',  pinyin:'xǐ',   meaning:'喜/Happy',   cat:'emotion' },
+  { char:'歡', code:'tgno',  pinyin:'huān', meaning:'歡/Joyful',  cat:'emotion' },
+  { char:'樂', code:'vid',   pinyin:'lè',   meaning:'樂/Joyful',  cat:'emotion' },
+  { char:'快', code:'pdk',   pinyin:'kuài', meaning:'快/Fast',    cat:'emotion' },
+  { char:'高', code:'yrbr',  pinyin:'gāo',  meaning:'高/High',    cat:'emotion' },
+  { char:'興', code:'hxbc',  pinyin:'xìng', meaning:'興/Excited', cat:'emotion' },
+  { char:'棒', code:'dqkq',  pinyin:'bàng', meaning:'棒/Great',   cat:'emotion' },
+  { char:'難', code:'toog',  pinyin:'nán',  meaning:'難/Hard',    cat:'emotion' },
+  { char:'苦', code:'tjr',   pinyin:'kǔ',   meaning:'苦/Bitter',  cat:'emotion' },
+  { char:'真', code:'jbmc',  pinyin:'zhēn', meaning:'真/Real',    cat:'emotion' },
+  { char:'感', code:'irp',   pinyin:'gǎn',  meaning:'感/Feel',    cat:'emotion' },
+  { char:'情', code:'pqmb',  pinyin:'qíng', meaning:'情/Feeling', cat:'emotion' },
+  { char:'思', code:'wp',    pinyin:'sī',   meaning:'思/Think',   cat:'emotion' },
+  { char:'心', code:'p',     pinyin:'xīn',  meaning:'心/Heart',   cat:'emotion' },
+
+  // ── 時間
+  { char:'今', code:'oin',   pinyin:'jīn',  meaning:'今/Today',   cat:'time' },
+  { char:'明', code:'ab',    pinyin:'míng', meaning:'明/Tomorrow',cat:'time' },
+  { char:'昨', code:'aos',   pinyin:'zuó',  meaning:'昨/Yesterday',cat:'time'},
+  { char:'早', code:'aj',    pinyin:'zǎo',  meaning:'早/Morning', cat:'time' },
+  { char:'晚', code:'anau',  altCodes:['ashu'], pinyin:'wǎn',  meaning:'晚/Evening', cat:'time' },
+  { char:'天', code:'mk',    pinyin:'tiān', meaning:'天/Day',     cat:'time' },
+  { char:'日', code:'a',     pinyin:'rì',   meaning:'日/Sun/Day', cat:'time' },
+  { char:'月', code:'b',     pinyin:'yuè',  meaning:'月/Month',   cat:'time' },
+  { char:'年', code:'oq',    pinyin:'nián', meaning:'年/Year',    cat:'time' },
+  { char:'星', code:'ahqm',  pinyin:'xīng', meaning:'星/Star',    cat:'time' },
+  { char:'期', code:'tcb',   pinyin:'qī',   meaning:'期/Period',  cat:'time' },
+  { char:'時', code:'agdi',  pinyin:'shí',  meaning:'時/Time',    cat:'time' },
+  { char:'候', code:'olnk',  pinyin:'hòu',  meaning:'候/Wait',    cat:'time' },
+  { char:'後', code:'hovie', pinyin:'hòu',  meaning:'後/After',   cat:'time' },
+  { char:'前', code:'tbln',  pinyin:'qián', meaning:'前/Before',  cat:'time' },
+  { char:'再', code:'mgb',   pinyin:'zài',  meaning:'再/Again',   cat:'time' },
+
+  // ── 常見高頻字
+  { char:'的', code:'hapi',  pinyin:'de',   meaning:'的/possessive',cat:'common' },
+  { char:'一', code:'m',     pinyin:'yī',   meaning:'一/One',     cat:'common' },
+  { char:'不', code:'mf',    pinyin:'bù',   meaning:'不/Not',     cat:'common' },
+  { char:'了', code:'nn',    pinyin:'le',   meaning:'了/particle',cat:'common' },
+  { char:'和', code:'hdr',   pinyin:'hé',   meaning:'和/And',     cat:'common' },
+  { char:'人', code:'o',     pinyin:'rén',  meaning:'人/Person',  cat:'common' },
+  { char:'這', code:'yymr',  pinyin:'zhè',  meaning:'這/This',    cat:'common' },
+  { char:'中', code:'l',     pinyin:'zhōng',meaning:'中/Middle',  cat:'common' },
+  { char:'為', code:'iknf',  pinyin:'wéi',  meaning:'為/For',     cat:'common' },
+  { char:'上', code:'ym',    pinyin:'shàng',meaning:'上/Up',      cat:'common' },
+  { char:'個', code:'owjr',  pinyin:'gè',   meaning:'個/Measure', cat:'common' },
+  { char:'以', code:'vio',   pinyin:'yǐ',   meaning:'以/Use',     cat:'common' },
+  { char:'也', code:'pd',    pinyin:'yě',   meaning:'也/Also',    cat:'common' },
+  { char:'能', code:'ibpp',  pinyin:'néng', meaning:'能/Can',     cat:'common' },
+  { char:'下', code:'my',    pinyin:'xià',  meaning:'下/Down',    cat:'common' },
+  { char:'子', code:'nd',    pinyin:'zi',   meaning:'子/Child',   cat:'common' },
+  { char:'在', code:'klg',   pinyin:'zài',  meaning:'在/At',      cat:'common' },
+  { char:'可', code:'mnr',   pinyin:'kě',   meaning:'可/Can',     cat:'common' },
+  { char:'就', code:'yfiku', pinyin:'jiù',  meaning:'就/Just',    cat:'common' },
+  { char:'對', code:'tgdi',  pinyin:'duì',  meaning:'對/Right',   cat:'common' },
+  { char:'會', code:'omwa',  pinyin:'huì',  meaning:'會/Will',    cat:'common' },
+  { char:'都', code:'janl',  pinyin:'dōu',  meaning:'都/All',     cat:'common' },
+  { char:'那', code:'sqnl',  pinyin:'nà',   meaning:'那/That',    cat:'common' },
+  { char:'就', code:'yfiku', pinyin:'jiù',  meaning:'就/Then',    cat:'common' },
+  { char:'因', code:'wk',    pinyin:'yīn',  meaning:'因/Because', cat:'common' },
+  { char:'而', code:'mbll',  pinyin:'ér',   meaning:'而/And',     cat:'common' },
+  { char:'但', code:'oam',   pinyin:'dàn',  meaning:'但/But',     cat:'common' },
+  { char:'或', code:'irm',   pinyin:'huò',  meaning:'或/Or',      cat:'common' },
+  { char:'只', code:'rc',    pinyin:'zhǐ',  meaning:'只/Only',    cat:'common' },
+  { char:'已', code:'su',    pinyin:'yǐ',   meaning:'已/Already', cat:'common' },
+
+  // ── 人際關係
+  { char:'朋', code:'bb',    pinyin:'péng', meaning:'朋/Friend',  cat:'people' },
+  { char:'友', code:'ke',    pinyin:'yǒu',  meaning:'友/Friend',  cat:'people' },
+  { char:'家', code:'jmso',  pinyin:'jiā',  meaning:'家/Home',    cat:'people' },
+  { char:'父', code:'ck',    pinyin:'fù',   meaning:'父/Father',  cat:'people' },
+  { char:'母', code:'wyi',   pinyin:'mǔ',   meaning:'母/Mother',  cat:'people' },
+  { char:'兄', code:'rhu',   pinyin:'xiōng',meaning:'兄/Brother', cat:'people' },
+  { char:'弟', code:'cnlh',  pinyin:'dì',   meaning:'弟/Brother', cat:'people' },
+  { char:'姐', code:'vbm',   pinyin:'jiě',  meaning:'姐/Sister',  cat:'people' },
+  { char:'妹', code:'vjd',   pinyin:'mèi',  meaning:'妹/Sister',  cat:'people' },
+  { char:'男', code:'wks',   pinyin:'nán',  meaning:'男/Male',    cat:'people' },
+  { char:'女', code:'v',     pinyin:'nǚ',   meaning:'女/Female',  cat:'people' },
+  { char:'老', code:'jkp',   pinyin:'lǎo',  meaning:'老/Old',     cat:'people' },
+  { char:'師', code:'hrmlb', pinyin:'shī',  meaning:'師/Teacher', cat:'people' },
+
+  // ── 道謝道歉
+  { char:'謝', code:'yrhhi', pinyin:'xiè',  meaning:'謝/Thanks',  cat:'polite' },
+  { char:'對', code:'tgdi',  pinyin:'duì',  meaning:'對/Correct', cat:'polite' },
+  { char:'起', code:'goru',  pinyin:'qǐ',   meaning:'起/Rise',    cat:'polite' },
+  { char:'沒', code:'ehse',  altCodes:['ene'], pinyin:'méi',  meaning:'沒/No/Not',  cat:'polite' },
+  { char:'事', code:'jlln',  pinyin:'shì',  meaning:'事/Matter',  cat:'polite' },
+  { char:'係', code:'ohvf',  pinyin:'xì',   meaning:'係/Connect', cat:'polite' },
+  { char:'辛', code:'ytj',   pinyin:'xīn',  meaning:'辛/Hard',    cat:'polite' },
+  { char:'苦', code:'tjr',   pinyin:'kǔ',   meaning:'苦/Hard',    cat:'polite' },
+  { char:'加', code:'ksr',   pinyin:'jiā',  meaning:'加/Add',     cat:'polite' },
+  { char:'油', code:'elw',   pinyin:'yóu',  meaning:'油/Oil',     cat:'polite' },
+  { char:'抱', code:'qpru',  pinyin:'bào',  meaning:'抱/Hold',    cat:'polite' },
+  { char:'歉', code:'ccno',  altCodes:['hcno','tcno'], pinyin:'qiàn', meaning:'歉/Apology', cat:'polite' },
+  { char:'意', code:'ytap',  pinyin:'yì',   meaning:'意/Meaning', cat:'polite' },
+  { char:'思', code:'wp',    pinyin:'si',   meaning:'思/Think',   cat:'polite' },
+
+  // ── 網路用語 / 常用表達
+  { char:'哈', code:'romr',  pinyin:'hā',   meaning:'哈/LOL',     cat:'net' },
+  { char:'哦', code:'rhqi',  pinyin:'ò',    meaning:'哦/Oh I see',cat:'net' },
+  { char:'嗯', code:'rwkp',  pinyin:'ń',    meaning:'嗯/Mm',      cat:'net' },
+  { char:'喔', code:'rsmg',  pinyin:'ō',    meaning:'喔/Oh',      cat:'net' },
+  { char:'棒', code:'dqkq',  pinyin:'bàng', meaning:'棒/Awesome', cat:'net' },
+  { char:'讚', code:'yrhuc', pinyin:'zàn',  meaning:'讚/Like',    cat:'net' },
+  { char:'很', code:'hoav',  pinyin:'hěn',  meaning:'很/Very',    cat:'net' },
+  { char:'超', code:'goshr', pinyin:'chāo', meaning:'超/Super',   cat:'net' },
+  { char:'最', code:'asje',  pinyin:'zuì',  meaning:'最/Most',    cat:'net' },
+  { char:'好', code:'vnd',   pinyin:'hǎo',  meaning:'好/Good',    cat:'net' },
+  { char:'了', code:'nn',    pinyin:'le',   meaning:'了/Done',    cat:'net' },
+  { char:'喜', code:'grtr',  pinyin:'xǐ',   meaning:'喜/Like',    cat:'net' },
+  { char:'歡', code:'tgno',  pinyin:'huān', meaning:'歡/Happy',   cat:'net' },
+  { char:'哭', code:'rrik',  pinyin:'kū',   meaning:'哭/Cry',     cat:'net' },
+];
+
+// Remove duplicates by char
+const seen = new Set();
+const UNIQUE_CHARS = CHARS.filter(c => {
+  if (seen.has(c.char)) return false;
+  seen.add(c.char);
+  return true;
+});
+
+// ─────────────────────────────────────────────
+// Categories
+// ─────────────────────────────────────────────
+const CATEGORIES = [
+  { id: 'all',      label: '全部' },
+  { id: 'common',   label: '高頻字' },
+  { id: 'greet',    label: '問候語' },
+  { id: 'verbs',    label: '動詞' },
+  { id: 'emotion',  label: '情感' },
+  { id: 'time',     label: '時間' },
+  { id: 'pronouns', label: '代詞' },
+  { id: 'people',   label: '人際' },
+  { id: 'polite',   label: '禮貌' },
+  { id: 'net',      label: '網路用語' },
+];
+
+// ─────────────────────────────────────────────
+// State
+// ─────────────────────────────────────────────
+let currentCat  = 'all';
+let queue       = [];
+let idx         = 0;
+let typed       = '';
+let answered    = false;
+let totalQ      = 0;
+let correctQ    = 0;
+let litKeys     = new Set();
+
+// ─────────────────────────────────────────────
+// DOM refs
+// ─────────────────────────────────────────────
+const elChar    = document.getElementById('char-display');
+const elPinyin  = document.getElementById('char-pinyin');
+const elMeaning = document.getElementById('char-meaning');
+const elProg    = document.getElementById('prog-text');
+const elFill    = document.getElementById('prog-fill');
+const elCode    = document.getElementById('code-display');
+const elFB      = document.getElementById('feedback');
+const elReveal  = document.getElementById('answer-reveal');
+const elNext    = document.getElementById('btn-next');
+const elHint    = document.getElementById('btn-hint');
+const elSkip    = document.getElementById('btn-skip');
+const elInput   = document.getElementById('hidden-input');
+const elHdrC    = document.getElementById('hdr-correct');
+const elHdrT    = document.getElementById('hdr-total');
+const elPCard   = document.getElementById('practice-card');
+const elDCard   = document.getElementById('done-card');
+const elKbd     = document.getElementById('keyboard');
+
+// ─────────────────────────────────────────────
+// Build Cangjie keyboard reference
+// ─────────────────────────────────────────────
+const KBD_ROWS = [
+  ['q','w','e','r','t','y','u','i','o','p'],
+  ['a','s','d','f','g','h','j','k','l'],
+  ['z','x','c','v','b','n','m'],
+];
+
+function buildKeyboard() {
+  KBD_ROWS.forEach(row => {
+    const div = document.createElement('div');
+    div.className = 'kbd-row';
+    row.forEach(k => {
+      const el = document.createElement('div');
+      el.className = 'kkey';
+      el.id = `kkey-${k}`;
+      el.innerHTML = `<span class="eng">${k.toUpperCase()}</span><span class="chi">${CJ_KEYS[k] || ''}</span>`;
+      div.appendChild(el);
+    });
+    elKbd.appendChild(div);
+  });
+}
+
+function litKeyboard(keys) {
+  litKeys.forEach(k => {
+    const el = document.getElementById(`kkey-${k}`);
+    if (el) el.classList.remove('lit');
+  });
+  litKeys.clear();
+  keys.forEach(k => {
+    const el = document.getElementById(`kkey-${k}`);
+    if (el) { el.classList.add('lit'); litKeys.add(k); }
+  });
+}
+
+// ─────────────────────────────────────────────
+// Build category tabs
+// ─────────────────────────────────────────────
+function buildTabs() {
+  const wrap = document.getElementById('tabs');
+  CATEGORIES.forEach(c => {
+    const btn = document.createElement('button');
+    btn.className = 'tab' + (c.id === currentCat ? ' active' : '');
+    const count = c.id === 'all'
+      ? UNIQUE_CHARS.length
+      : UNIQUE_CHARS.filter(x => x.cat === c.id).length;
+    btn.textContent = `${c.label} (${count})`;
+    btn.dataset.cat = c.id;
+    btn.addEventListener('click', () => {
+      currentCat = c.id;
+      document.querySelectorAll('.tab').forEach(t => t.classList.remove('active'));
+      btn.classList.add('active');
+      startSession();
+    });
+    wrap.appendChild(btn);
+  });
+}
+
+// ─────────────────────────────────────────────
+// Session management
+// ─────────────────────────────────────────────
+function startSession() {
+  const pool = currentCat === 'all'
+    ? [...UNIQUE_CHARS]
+    : UNIQUE_CHARS.filter(c => c.cat === currentCat);
+
+  // Shuffle
+  queue = pool.sort(() => Math.random() - .5);
+  idx       = 0;
+  totalQ    = 0;
+  correctQ  = 0;
+  updateHeader();
+  elPCard.style.display = '';
+  elDCard.style.display = 'none';
+  loadQuestion();
+}
+
+function loadQuestion() {
+  if (idx >= queue.length) { showDone(); return; }
+  const item = queue[idx];
+  elChar.textContent    = item.char;
+  elPinyin.textContent  = item.pinyin;
+  elMeaning.textContent = item.meaning;
+  typed    = '';
+  answered = false;
+  elFB.textContent     = '';
+  elFB.className       = 'feedback';
+  elReveal.innerHTML   = '';
+  elNext.style.display = 'none';
+  elHint.style.display = '';
+  elSkip.style.display = '';
+  renderCodeSlots(item.code, '');
+  litKeyboard([]);
+  updateProgress();
+  focusInput();
+}
+
+function updateProgress() {
+  const total = queue.length;
+  const pct   = total ? Math.round((idx / total) * 100) : 0;
+  elProg.textContent      = `${idx} / ${total}`;
+  elFill.style.width      = `${pct}%`;
+}
+
+function updateHeader() {
+  elHdrC.textContent = correctQ;
+  elHdrT.textContent = totalQ;
+}
+
+// ─────────────────────────────────────────────
+// Render code key slots
+// ─────────────────────────────────────────────
+function renderCodeSlots(code, typed, state) {
+  elCode.innerHTML = '';
+  const len = code.length;
+  for (let i = 0; i < len; i++) {
+    const letter = code[i];
+    const div = document.createElement('div');
+    let cls = 'code-key';
+    if (state === 'correct') {
+      cls += ' correct';
+      div.innerHTML = `${letter.toUpperCase()}<span class="radical">${CJ_KEYS[letter] || ''}</span>`;
+    } else if (state === 'wrong') {
+      if (i < typed.length) {
+        cls += typed[i] === letter ? ' correct' : ' wrong';
+      } else {
+        cls += ' empty';
+      }
+      div.innerHTML = `${letter.toUpperCase()}<span class="radical">${CJ_KEYS[letter] || ''}</span>`;
+    } else {
+      if (i < typed.length) {
+        cls += ' typed';
+        div.innerHTML = `${typed[i].toUpperCase()}<span class="radical">${CJ_KEYS[typed[i]] || ''}</span>`;
+      } else {
+        cls += ' empty';
+        div.innerHTML = `<span style="opacity:.3">-</span>`;
+      }
+    }
+    div.className = cls;
+    elCode.appendChild(div);
+  }
+}
+
+// ─────────────────────────────────────────────
+// Input handling
+// ─────────────────────────────────────────────
+function focusInput() {
+  elInput.value = '';
+  // Small timeout for mobile
+  setTimeout(() => elInput.focus(), 50);
+}
+
+elInput.addEventListener('input', e => {
+  if (answered) return;
+  const raw  = e.target.value.toLowerCase().replace(/[^a-z]/g, '');
+  e.target.value = '';
+  if (!raw) return;
+  const item = queue[idx];
+  const code = item.code;
+
+  // Accept one char at a time
+  for (const ch of raw) {
+    if (typed.length < code.length) {
+      typed += ch;
+    }
+  }
+  renderCodeSlots(code, typed, null);
+  litKeyboard([...typed]);
+
+  // Auto-submit when length matches
+  if (typed.length === code.length) {
+    submitAnswer();
+  }
+});
+
+// Also handle keydown for better desktop UX
+elInput.addEventListener('keydown', e => {
+  if (e.key === 'Backspace' && !answered) {
+    typed = typed.slice(0, -1);
+    renderCodeSlots(queue[idx].code, typed, null);
+    litKeyboard([...typed]);
+    e.preventDefault();
+    return;
+  }
+  if (e.key === 'Enter' && answered) {
+    nextQuestion();
+    return;
+  }
+});
+
+// Click anywhere on practice card to refocus
+elPCard.addEventListener('click', () => { if (!answered) focusInput(); });
+
+// ─────────────────────────────────────────────
+// Submit
+// ─────────────────────────────────────────────
+function submitAnswer() {
+  if (answered) return;
+  answered = true;
+  const item      = queue[idx];
+  const code      = item.code;
+  const validCodes = [code, ...(item.altCodes || [])];
+  const isOK      = validCodes.includes(typed);
+
+  totalQ++;
+  if (isOK) correctQ++;
+  updateHeader();
+
+  if (isOK) {
+    elFB.textContent  = '✓ 正確！';
+    elFB.className    = 'feedback correct';
+    renderCodeSlots(code, typed, 'correct');
+    litKeyboard([...code]);
+  } else {
+    elFB.textContent  = '✗ 不對，正確答案：';
+    elFB.className    = 'feedback wrong';
+    renderCodeSlots(code, typed, 'wrong');
+    showReveal(code);
+  }
+
+  elNext.style.display = 'inline-block';
+  elHint.style.display = 'none';
+  elSkip.style.display = 'none';
+}
+
+function showReveal(code) {
+  const keys = [...code].map(k => `<strong>${k.toUpperCase()}</strong> ${CJ_KEYS[k] || ''}`).join(' ');
+  elReveal.innerHTML = `${code.toUpperCase()} （${[...code].map(k=>CJ_KEYS[k]||k).join('')}）`;
+}
+
+// ─────────────────────────────────────────────
+// Next question
+// ─────────────────────────────────────────────
+function nextQuestion() {
+  idx++;
+  loadQuestion();
+}
+
+elNext.addEventListener('click', nextQuestion);
+
+elSkip.addEventListener('click', () => {
+  // Move skipped item to end
+  const skipped = queue.splice(idx, 1)[0];
+  queue.push(skipped);
+  updateProgress();
+  loadQuestion();
+});
+
+elHint.addEventListener('click', () => {
+  const item  = queue[idx];
+  const first = item.code[0];
+  elFB.textContent = `提示：第一個字母是 ${first.toUpperCase()} (${CJ_KEYS[first] || first})`;
+  elFB.className   = 'feedback hint';
+  litKeyboard([first]);
+  focusInput();
+});
+
+// ─────────────────────────────────────────────
+// Done screen
+// ─────────────────────────────────────────────
+function showDone() {
+  elPCard.style.display = 'none';
+  elDCard.style.display = '';
+  const pct = totalQ ? Math.round((correctQ / totalQ) * 100) : 0;
+  document.getElementById('stat-correct').textContent = correctQ;
+  document.getElementById('stat-total').textContent   = totalQ;
+  document.getElementById('stat-pct').textContent     = pct + '%';
+  document.getElementById('done-emoji').textContent   = pct >= 80 ? '🎉' : pct >= 50 ? '💪' : '📚';
+  document.getElementById('done-title').textContent   = pct >= 80 ? '練習完成！太棒了！' : pct >= 50 ? '繼續努力！' : '加油！多練習！';
+  document.getElementById('done-sub').textContent     = `本次正確率 ${pct}%`;
+  litKeyboard([]);
+}
+
+document.getElementById('btn-restart').addEventListener('click', startSession);
+document.getElementById('btn-allcat').addEventListener('click', () => {
+  currentCat = 'all';
+  document.querySelectorAll('.tab').forEach(t => t.classList.remove('active'));
+  document.querySelector('.tab[data-cat="all"]').classList.add('active');
+  startSession();
+});
+
+// ─────────────────────────────────────────────
+// Init
+// ─────────────────────────────────────────────
+buildKeyboard();
+
+// Tap keyboard keys on mobile (delegated)
+elKbd.addEventListener('click', e => {
+  if (answered) return;
+  const el = e.target.closest('.kkey');
+  if (!el) return;
+  const key = el.id.replace('kkey-', '');
+  const item = queue[idx];
+  if (!item) return;
+  const code = item.code;
+  if (typed.length < code.length) {
+    typed += key;
+    renderCodeSlots(code, typed, null);
+    litKeyboard([...typed]);
+    if (typed.length === code.length) submitAnswer();
+  }
+});
+
+buildTabs();
+startSession();
+</script>
+</body>
+</html>
