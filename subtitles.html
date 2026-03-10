@@ -1,0 +1,789 @@
+<!DOCTYPE html>
+<html lang="zh-TW">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>YouTube 中文字幕播放器</title>
+  <style>
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+    :root {
+      --bg: #0f0f0f;
+      --surface: #1a1a1a;
+      --surface2: #242424;
+      --primary: #ff0000;
+      --primary-dark: #cc0000;
+      --text: #f1f1f1;
+      --muted: #aaaaaa;
+      --border: #333;
+      --radius: 8px;
+    }
+
+    body {
+      font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', 'PingFang TC',
+                   'Noto Sans TC', sans-serif;
+      background: var(--bg);
+      color: var(--text);
+      min-height: 100dvh;
+      display: flex;
+      flex-direction: column;
+    }
+
+    header {
+      background: var(--surface);
+      border-bottom: 1px solid var(--border);
+      padding: 14px 24px;
+      display: flex;
+      align-items: center;
+      gap: 12px;
+    }
+    header h1 {
+      font-size: 1.1rem;
+      font-weight: 700;
+      color: var(--text);
+    }
+    header h1 span { color: var(--primary); }
+
+    /* ── URL input bar ── */
+    .url-bar {
+      background: var(--surface);
+      border-bottom: 1px solid var(--border);
+      padding: 12px 24px;
+      display: flex;
+      gap: 10px;
+      align-items: center;
+      flex-wrap: wrap;
+    }
+    .url-bar label { color: var(--muted); font-size: .85rem; white-space: nowrap; }
+    .url-bar input {
+      flex: 1;
+      min-width: 240px;
+      background: var(--surface2);
+      border: 1px solid var(--border);
+      border-radius: var(--radius);
+      color: var(--text);
+      padding: 8px 14px;
+      font-size: .9rem;
+      outline: none;
+      transition: border-color .2s;
+    }
+    .url-bar input:focus { border-color: var(--primary); }
+    .url-bar button {
+      background: var(--primary);
+      color: #fff;
+      border: none;
+      border-radius: var(--radius);
+      padding: 8px 20px;
+      font-size: .9rem;
+      font-weight: 600;
+      cursor: pointer;
+      white-space: nowrap;
+      transition: background .2s;
+    }
+    .url-bar button:hover { background: var(--primary-dark); }
+
+    /* ── Main layout ── */
+    main {
+      flex: 1;
+      display: flex;
+      gap: 0;
+      overflow: hidden;
+    }
+
+    /* ── Video panel ── */
+    .video-panel {
+      flex: 1;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      padding: 24px;
+      gap: 16px;
+      overflow-y: auto;
+    }
+
+    .player-wrapper {
+      position: relative;
+      width: 100%;
+      max-width: 800px;
+      aspect-ratio: 16 / 9;
+      background: #000;
+      border-radius: var(--radius);
+      overflow: hidden;
+      box-shadow: 0 8px 32px rgba(0,0,0,.6);
+    }
+
+    #yt-player {
+      position: absolute;
+      inset: 0;
+      width: 100%;
+      height: 100%;
+    }
+
+    /* ── Subtitle overlay ── */
+    .subtitle-overlay {
+      position: absolute;
+      bottom: 48px;
+      left: 50%;
+      transform: translateX(-50%);
+      width: 90%;
+      text-align: center;
+      pointer-events: none;
+      z-index: 10;
+    }
+    .subtitle-text {
+      display: inline-block;
+      background: rgba(0, 0, 0, .75);
+      color: #fff;
+      font-size: clamp(1rem, 2.5vw, 1.5rem);
+      font-weight: 500;
+      line-height: 1.5;
+      padding: 6px 14px;
+      border-radius: 4px;
+      letter-spacing: .03em;
+      transition: opacity .15s;
+    }
+    .subtitle-text:empty { display: none; }
+
+    /* ── Playback info bar ── */
+    .time-bar {
+      width: 100%;
+      max-width: 800px;
+      display: flex;
+      align-items: center;
+      gap: 12px;
+      color: var(--muted);
+      font-size: .8rem;
+    }
+    .time-bar #current-time { color: var(--text); font-weight: 600; }
+
+    /* ── Subtitle editor panel ── */
+    .editor-panel {
+      width: 360px;
+      min-width: 280px;
+      background: var(--surface);
+      border-left: 1px solid var(--border);
+      display: flex;
+      flex-direction: column;
+      overflow: hidden;
+    }
+
+    .editor-header {
+      padding: 14px 16px;
+      border-bottom: 1px solid var(--border);
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      gap: 8px;
+      flex-wrap: wrap;
+    }
+    .editor-header h2 { font-size: .95rem; font-weight: 700; }
+
+    .editor-actions {
+      display: flex;
+      gap: 6px;
+    }
+    .btn-sm {
+      background: var(--surface2);
+      color: var(--text);
+      border: 1px solid var(--border);
+      border-radius: 6px;
+      padding: 5px 12px;
+      font-size: .78rem;
+      cursor: pointer;
+      transition: background .2s, border-color .2s;
+    }
+    .btn-sm:hover { background: #333; border-color: #555; }
+    .btn-sm.accent {
+      background: var(--primary);
+      border-color: var(--primary);
+      color: #fff;
+    }
+    .btn-sm.accent:hover { background: var(--primary-dark); border-color: var(--primary-dark); }
+
+    /* ── Subtitle list ── */
+    .subtitle-list {
+      flex: 1;
+      overflow-y: auto;
+      padding: 8px;
+      display: flex;
+      flex-direction: column;
+      gap: 6px;
+    }
+
+    .sub-entry {
+      background: var(--surface2);
+      border: 1px solid var(--border);
+      border-radius: 6px;
+      padding: 8px 10px;
+      display: grid;
+      grid-template-columns: 1fr 1fr auto;
+      gap: 4px 8px;
+      align-items: center;
+      transition: border-color .2s;
+    }
+    .sub-entry:hover { border-color: #555; }
+    .sub-entry.active { border-color: var(--primary); }
+
+    .sub-entry input[type="text"] {
+      background: transparent;
+      border: none;
+      color: var(--text);
+      font-size: .8rem;
+      width: 100%;
+      outline: none;
+      font-family: inherit;
+    }
+    .sub-entry input[type="text"]::placeholder { color: var(--muted); }
+
+    .time-inputs {
+      grid-column: 1 / 3;
+      display: flex;
+      gap: 4px;
+      align-items: center;
+    }
+    .time-inputs label { color: var(--muted); font-size: .72rem; white-space: nowrap; }
+    .time-inputs input[type="number"] {
+      background: var(--bg);
+      border: 1px solid var(--border);
+      border-radius: 4px;
+      color: var(--text);
+      padding: 3px 6px;
+      font-size: .78rem;
+      width: 68px;
+      outline: none;
+    }
+    .time-inputs input[type="number"]:focus { border-color: var(--primary); }
+
+    .chinese-input {
+      grid-column: 1 / 3;
+    }
+    .chinese-input input {
+      background: var(--bg);
+      border: 1px solid var(--border);
+      border-radius: 4px;
+      color: var(--text);
+      padding: 5px 8px;
+      font-size: .95rem;
+      width: 100%;
+      outline: none;
+      font-family: 'PingFang TC', 'Noto Sans TC', sans-serif;
+    }
+    .chinese-input input:focus { border-color: var(--primary); }
+
+    .del-btn {
+      background: transparent;
+      border: 1px solid transparent;
+      border-radius: 4px;
+      color: var(--muted);
+      cursor: pointer;
+      padding: 4px 6px;
+      font-size: 1rem;
+      line-height: 1;
+      grid-row: 1;
+      grid-column: 3;
+      align-self: start;
+      transition: color .2s, border-color .2s;
+    }
+    .del-btn:hover { color: var(--primary); border-color: var(--primary); }
+
+    /* ── Add entry form ── */
+    .add-form {
+      border-top: 1px solid var(--border);
+      padding: 12px 16px;
+      display: flex;
+      flex-direction: column;
+      gap: 8px;
+    }
+    .add-form h3 { font-size: .8rem; color: var(--muted); text-transform: uppercase; letter-spacing: .06em; }
+
+    .add-form .row { display: flex; gap: 8px; align-items: center; }
+    .add-form label { color: var(--muted); font-size: .78rem; white-space: nowrap; }
+    .add-form input[type="number"] {
+      background: var(--surface2);
+      border: 1px solid var(--border);
+      border-radius: 6px;
+      color: var(--text);
+      padding: 6px 10px;
+      font-size: .82rem;
+      width: 80px;
+      outline: none;
+    }
+    .add-form input[type="number"]:focus { border-color: var(--primary); }
+    .add-form input[type="text"] {
+      background: var(--surface2);
+      border: 1px solid var(--border);
+      border-radius: 6px;
+      color: var(--text);
+      padding: 6px 10px;
+      font-size: .95rem;
+      flex: 1;
+      outline: none;
+      font-family: 'PingFang TC', 'Noto Sans TC', sans-serif;
+    }
+    .add-form input[type="text"]:focus { border-color: var(--primary); }
+    .add-form .btn-add {
+      background: var(--primary);
+      color: #fff;
+      border: none;
+      border-radius: 6px;
+      padding: 8px 0;
+      font-size: .88rem;
+      font-weight: 600;
+      cursor: pointer;
+      width: 100%;
+      transition: background .2s;
+    }
+    .add-form .btn-add:hover { background: var(--primary-dark); }
+
+    /* ── Import / Export modal ── */
+    .modal-backdrop {
+      display: none;
+      position: fixed;
+      inset: 0;
+      background: rgba(0,0,0,.7);
+      z-index: 100;
+      align-items: center;
+      justify-content: center;
+    }
+    .modal-backdrop.open { display: flex; }
+    .modal {
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: var(--radius);
+      padding: 20px;
+      width: 90%;
+      max-width: 560px;
+      display: flex;
+      flex-direction: column;
+      gap: 12px;
+    }
+    .modal h3 { font-size: 1rem; }
+    .modal textarea {
+      background: var(--bg);
+      border: 1px solid var(--border);
+      border-radius: 6px;
+      color: var(--text);
+      padding: 10px;
+      font-size: .82rem;
+      font-family: monospace;
+      resize: vertical;
+      min-height: 180px;
+      outline: none;
+      width: 100%;
+    }
+    .modal textarea:focus { border-color: var(--primary); }
+    .modal p.hint { font-size: .78rem; color: var(--muted); line-height: 1.6; }
+    .modal .modal-actions { display: flex; gap: 8px; justify-content: flex-end; }
+
+    /* ── Empty state ── */
+    .empty-state {
+      text-align: center;
+      color: var(--muted);
+      padding: 32px 16px;
+      font-size: .85rem;
+      line-height: 1.8;
+    }
+
+    /* ── Placeholder video screen ── */
+    .placeholder-screen {
+      width: 100%;
+      max-width: 800px;
+      aspect-ratio: 16 / 9;
+      background: #111;
+      border-radius: var(--radius);
+      border: 2px dashed var(--border);
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      gap: 12px;
+      color: var(--muted);
+    }
+    .placeholder-screen svg { width: 64px; height: 64px; opacity: .4; }
+    .placeholder-screen p { font-size: .9rem; }
+
+    /* ── Scrollbar ── */
+    ::-webkit-scrollbar { width: 6px; }
+    ::-webkit-scrollbar-track { background: transparent; }
+    ::-webkit-scrollbar-thumb { background: var(--border); border-radius: 3px; }
+
+    /* ── Responsive ── */
+    @media (max-width: 700px) {
+      main { flex-direction: column; }
+      .editor-panel { width: 100%; border-left: none; border-top: 1px solid var(--border); max-height: 50vh; }
+    }
+  </style>
+</head>
+<body>
+
+<header>
+  <svg width="28" height="28" viewBox="0 0 28 28" fill="none">
+    <rect width="28" height="28" rx="6" fill="#ff0000"/>
+    <polygon points="11,8 22,14 11,20" fill="#fff"/>
+  </svg>
+  <h1>YouTube <span>中文字幕</span>播放器</h1>
+</header>
+
+<!-- URL bar -->
+<div class="url-bar">
+  <label for="yt-url">YouTube 網址：</label>
+  <input id="yt-url" type="text" placeholder="https://www.youtube.com/watch?v=..." />
+  <button id="load-btn">載入影片</button>
+</div>
+
+<main>
+  <!-- Left: video + subtitle overlay -->
+  <div class="video-panel">
+    <div id="placeholder" class="placeholder-screen">
+      <svg viewBox="0 0 24 24" fill="currentColor">
+        <path d="M21.582 6.186A2.506 2.506 0 0 0 19.8 4.41C18.252 4 12 4 12 4s-6.252 0-7.8.41A2.506 2.506 0 0 0 2.418 6.186 26.352 26.352 0 0 0 2 12a26.352 26.352 0 0 0 .418 5.814A2.506 2.506 0 0 0 4.2 19.59C5.748 20 12 20 12 20s6.252 0 7.8-.41a2.506 2.506 0 0 0 1.782-1.776A26.352 26.352 0 0 0 22 12a26.352 26.352 0 0 0-.418-5.814z"/>
+        <polygon points="10 15.5 15.5 12 10 8.5" fill="#0f0f0f"/>
+      </svg>
+      <p>貼上 YouTube 網址後按「載入影片」</p>
+    </div>
+
+    <div class="player-wrapper" id="player-wrapper" style="display:none">
+      <div id="yt-player"></div>
+      <div class="subtitle-overlay">
+        <div class="subtitle-text" id="sub-display"></div>
+      </div>
+    </div>
+
+    <div class="time-bar" id="time-bar" style="display:none">
+      <span>目前時間：</span>
+      <span id="current-time">0.0s</span>
+      <span style="margin-left:auto;">字幕數量：<span id="sub-count">0</span></span>
+    </div>
+  </div>
+
+  <!-- Right: subtitle editor -->
+  <aside class="editor-panel">
+    <div class="editor-header">
+      <h2>字幕編輯器</h2>
+      <div class="editor-actions">
+        <button class="btn-sm" id="import-btn">匯入 SRT</button>
+        <button class="btn-sm accent" id="export-btn">匯出 SRT</button>
+      </div>
+    </div>
+
+    <div class="subtitle-list" id="subtitle-list">
+      <div class="empty-state">
+        尚無字幕。<br>在下方新增，或匯入 SRT 檔案。
+      </div>
+    </div>
+
+    <!-- Add new subtitle form -->
+    <div class="add-form">
+      <h3>新增字幕</h3>
+      <div class="row">
+        <label>開始 (秒)</label>
+        <input type="number" id="new-start" value="0" min="0" step="0.1" />
+        <label>結束 (秒)</label>
+        <input type="number" id="new-end" value="3" min="0" step="0.1" />
+        <button class="btn-sm" id="capture-btn" title="擷取目前影片時間">⏱ 擷取</button>
+      </div>
+      <div class="row">
+        <input type="text" id="new-text" placeholder="輸入中文字幕..." />
+      </div>
+      <button class="btn-add" id="add-btn">新增字幕</button>
+    </div>
+  </aside>
+</main>
+
+<!-- Import modal -->
+<div class="modal-backdrop" id="import-modal">
+  <div class="modal">
+    <h3>匯入 SRT 字幕檔</h3>
+    <p class="hint">
+      貼上 SRT 格式內容，或拖放 .srt 檔案至此視窗。<br>
+      格式範例：<br>
+      1<br>
+      00:00:01,000 --&gt; 00:00:04,000<br>
+      你好，歡迎收看。
+    </p>
+    <textarea id="import-text" placeholder="在此貼上 SRT 內容..."></textarea>
+    <div class="modal-actions">
+      <button class="btn-sm" id="import-cancel">取消</button>
+      <button class="btn-sm accent" id="import-confirm">匯入</button>
+    </div>
+  </div>
+</div>
+
+<!-- Export modal -->
+<div class="modal-backdrop" id="export-modal">
+  <div class="modal">
+    <h3>匯出 SRT 字幕檔</h3>
+    <textarea id="export-text" readonly></textarea>
+    <div class="modal-actions">
+      <button class="btn-sm" id="export-copy">複製到剪貼簿</button>
+      <button class="btn-sm accent" id="export-download">下載 .srt</button>
+      <button class="btn-sm" id="export-close">關閉</button>
+    </div>
+  </div>
+</div>
+
+<script>
+  /* ── State ── */
+  let subtitles = []; // { id, start, end, text }
+  let nextId = 1;
+  let player = null;
+  let rafId = null;
+
+  /* ── YouTube IFrame API ── */
+  window.onYouTubeIframeAPIReady = function () {
+    // API ready; player created on video load
+  };
+
+  const tag = document.createElement('script');
+  tag.src = 'https://www.youtube.com/iframe_api';
+  document.head.appendChild(tag);
+
+  /* ── Helpers ── */
+  function extractVideoId(url) {
+    try {
+      const u = new URL(url);
+      if (u.hostname.includes('youtu.be')) return u.pathname.slice(1).split('?')[0];
+      return u.searchParams.get('v') || null;
+    } catch {
+      return null;
+    }
+  }
+
+  function secsToSrtTime(s) {
+    const h = Math.floor(s / 3600);
+    const m = Math.floor((s % 3600) / 60);
+    const sec = Math.floor(s % 60);
+    const ms = Math.round((s % 1) * 1000);
+    return `${String(h).padStart(2,'0')}:${String(m).padStart(2,'0')}:${String(sec).padStart(2,'0')},${String(ms).padStart(3,'0')}`;
+  }
+
+  function srtTimeToSecs(t) {
+    const [hms, ms] = t.split(',');
+    const [h, m, s] = hms.split(':').map(Number);
+    return h * 3600 + m * 60 + s + (parseInt(ms || 0, 10) / 1000);
+  }
+
+  function parseSrt(raw) {
+    const blocks = raw.trim().split(/\n\s*\n/);
+    const result = [];
+    for (const block of blocks) {
+      const lines = block.trim().split('\n');
+      if (lines.length < 3) continue;
+      const timeLine = lines[1];
+      const match = timeLine.match(/(\d{2}:\d{2}:\d{2},\d{3})\s*-->\s*(\d{2}:\d{2}:\d{2},\d{3})/);
+      if (!match) continue;
+      const start = srtTimeToSecs(match[1]);
+      const end   = srtTimeToSecs(match[2]);
+      const text  = lines.slice(2).join('\n').trim();
+      result.push({ id: nextId++, start, end, text });
+    }
+    return result;
+  }
+
+  function buildSrt(subs) {
+    return subs
+      .slice()
+      .sort((a, b) => a.start - b.start)
+      .map((s, i) =>
+        `${i + 1}\n${secsToSrtTime(s.start)} --> ${secsToSrtTime(s.end)}\n${s.text}`
+      )
+      .join('\n\n');
+  }
+
+  /* ── Subtitle list rendering ── */
+  function renderList() {
+    const list = document.getElementById('subtitle-list');
+    const sorted = subtitles.slice().sort((a, b) => a.start - b.start);
+    document.getElementById('sub-count').textContent = sorted.length;
+
+    if (sorted.length === 0) {
+      list.innerHTML = '<div class="empty-state">尚無字幕。<br>在下方新增，或匯入 SRT 檔案。</div>';
+      return;
+    }
+
+    list.innerHTML = '';
+    for (const sub of sorted) {
+      const div = document.createElement('div');
+      div.className = 'sub-entry';
+      div.dataset.id = sub.id;
+      div.innerHTML = `
+        <div class="time-inputs" style="grid-column:1/3">
+          <label>開始</label>
+          <input type="number" class="start-in" value="${sub.start.toFixed(2)}" min="0" step="0.1" data-id="${sub.id}" />
+          <label>結束</label>
+          <input type="number" class="end-in" value="${sub.end.toFixed(2)}" min="0" step="0.1" data-id="${sub.id}" />
+        </div>
+        <button class="del-btn" data-id="${sub.id}">✕</button>
+        <div class="chinese-input" style="grid-column:1/4">
+          <input type="text" class="text-in" value="${sub.text}" placeholder="中文字幕..." data-id="${sub.id}" />
+        </div>
+      `;
+      list.appendChild(div);
+    }
+  }
+
+  /* ── Playback loop: update subtitle overlay ── */
+  function tick() {
+    if (!player || typeof player.getCurrentTime !== 'function') {
+      rafId = requestAnimationFrame(tick);
+      return;
+    }
+    const t = player.getCurrentTime();
+    document.getElementById('current-time').textContent = t.toFixed(1) + 's';
+
+    // Find active subtitle
+    const active = subtitles.find(s => t >= s.start && t <= s.end);
+    const display = document.getElementById('sub-display');
+    display.textContent = active ? active.text : '';
+
+    // Highlight active entry in editor
+    document.querySelectorAll('.sub-entry').forEach(el => {
+      el.classList.toggle('active', el.dataset.id === String(active?.id));
+      if (el.dataset.id === String(active?.id)) {
+        el.scrollIntoView({ block: 'nearest', behavior: 'smooth' });
+      }
+    });
+
+    rafId = requestAnimationFrame(tick);
+  }
+
+  /* ── Load video ── */
+  document.getElementById('load-btn').addEventListener('click', () => {
+    const url = document.getElementById('yt-url').value.trim();
+    const vid = extractVideoId(url);
+    if (!vid) {
+      alert('請輸入有效的 YouTube 網址。');
+      return;
+    }
+
+    document.getElementById('placeholder').style.display = 'none';
+    document.getElementById('player-wrapper').style.display = 'block';
+    document.getElementById('time-bar').style.display = 'flex';
+
+    if (rafId) cancelAnimationFrame(rafId);
+
+    if (player) {
+      player.loadVideoById(vid);
+    } else {
+      player = new YT.Player('yt-player', {
+        videoId: vid,
+        playerVars: { rel: 0, modestbranding: 1 },
+        events: {
+          onReady: () => { tick(); }
+        }
+      });
+    }
+  });
+
+  /* Enter key on URL input */
+  document.getElementById('yt-url').addEventListener('keydown', e => {
+    if (e.key === 'Enter') document.getElementById('load-btn').click();
+  });
+
+  /* ── Add subtitle ── */
+  document.getElementById('add-btn').addEventListener('click', () => {
+    const start = parseFloat(document.getElementById('new-start').value);
+    const end   = parseFloat(document.getElementById('new-end').value);
+    const text  = document.getElementById('new-text').value.trim();
+    if (!text) { alert('請輸入字幕文字。'); return; }
+    if (isNaN(start) || isNaN(end) || end <= start) {
+      alert('請確認開始時間小於結束時間。');
+      return;
+    }
+    subtitles.push({ id: nextId++, start, end, text });
+    document.getElementById('new-text').value = '';
+    document.getElementById('new-start').value = end;
+    document.getElementById('new-end').value   = (end + 3).toFixed(1);
+    renderList();
+  });
+
+  /* ── Capture current time ── */
+  document.getElementById('capture-btn').addEventListener('click', () => {
+    if (!player || typeof player.getCurrentTime !== 'function') return;
+    const t = player.getCurrentTime();
+    const startIn = document.getElementById('new-start');
+    const endIn   = document.getElementById('new-end');
+    const dur = parseFloat(endIn.value) - parseFloat(startIn.value);
+    startIn.value = t.toFixed(2);
+    endIn.value   = (t + (isNaN(dur) || dur <= 0 ? 3 : dur)).toFixed(2);
+  });
+
+  /* ── Edit / delete via event delegation ── */
+  document.getElementById('subtitle-list').addEventListener('change', e => {
+    const id = parseInt(e.target.dataset.id, 10);
+    const sub = subtitles.find(s => s.id === id);
+    if (!sub) return;
+    if (e.target.classList.contains('start-in')) sub.start = parseFloat(e.target.value);
+    if (e.target.classList.contains('end-in'))   sub.end   = parseFloat(e.target.value);
+    if (e.target.classList.contains('text-in'))  sub.text  = e.target.value;
+  });
+
+  document.getElementById('subtitle-list').addEventListener('click', e => {
+    if (e.target.classList.contains('del-btn')) {
+      const id = parseInt(e.target.dataset.id, 10);
+      subtitles = subtitles.filter(s => s.id !== id);
+      renderList();
+    }
+  });
+
+  /* ── Import SRT ── */
+  document.getElementById('import-btn').addEventListener('click', () => {
+    document.getElementById('import-modal').classList.add('open');
+  });
+  document.getElementById('import-cancel').addEventListener('click', () => {
+    document.getElementById('import-modal').classList.remove('open');
+  });
+  document.getElementById('import-confirm').addEventListener('click', () => {
+    const raw = document.getElementById('import-text').value;
+    const parsed = parseSrt(raw);
+    if (parsed.length === 0) { alert('無法解析 SRT 格式，請確認格式正確。'); return; }
+    subtitles = [...subtitles, ...parsed];
+    renderList();
+    document.getElementById('import-modal').classList.remove('open');
+    document.getElementById('import-text').value = '';
+  });
+
+  /* Drag-and-drop SRT onto import modal */
+  document.getElementById('import-modal').addEventListener('dragover', e => e.preventDefault());
+  document.getElementById('import-modal').addEventListener('drop', e => {
+    e.preventDefault();
+    const file = e.dataTransfer.files[0];
+    if (!file) return;
+    const reader = new FileReader();
+    reader.onload = ev => { document.getElementById('import-text').value = ev.target.result; };
+    reader.readAsText(file, 'UTF-8');
+  });
+
+  /* ── Export SRT ── */
+  document.getElementById('export-btn').addEventListener('click', () => {
+    document.getElementById('export-text').value = buildSrt(subtitles);
+    document.getElementById('export-modal').classList.add('open');
+  });
+  document.getElementById('export-close').addEventListener('click', () => {
+    document.getElementById('export-modal').classList.remove('open');
+  });
+  document.getElementById('export-copy').addEventListener('click', () => {
+    navigator.clipboard.writeText(document.getElementById('export-text').value)
+      .then(() => alert('已複製到剪貼簿！'));
+  });
+  document.getElementById('export-download').addEventListener('click', () => {
+    const blob = new Blob([document.getElementById('export-text').value], { type: 'text/plain;charset=utf-8' });
+    const a = document.createElement('a');
+    a.href = URL.createObjectURL(blob);
+    a.download = 'subtitles.srt';
+    a.click();
+  });
+
+  /* ── Keyboard: close modals with Escape ── */
+  document.addEventListener('keydown', e => {
+    if (e.key === 'Escape') {
+      document.getElementById('import-modal').classList.remove('open');
+      document.getElementById('export-modal').classList.remove('open');
+    }
+  });
+
+  /* Initial render */
+  renderList();
+</script>
+</body>
+</html>
